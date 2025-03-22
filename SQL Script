@@ -1,0 +1,146 @@
+Create table Sales
+(Customer_id nvarchar (50),
+Order_date date,
+Product_id Int)
+
+Create table Menu
+(Product_id int,
+Product_name nvarchar(50),
+Price Int)
+
+Create table Members
+(Customer_id nvarchar (50),
+Join_date date)
+
+---Inserting data into the table
+Insert into [Dany's diner].dbo.Sales
+---("Customer_id","Order_date","Product_id")
+values
+('A','2021-01-01',1)
+('A','2021-01-01',2),
+('A','2021-01-07',2),
+('A','2021-01-10',3),
+('A','2021-01-11',3),
+('A','2021-01-11',3),
+('B','2021-01-01',2),
+('B','2021-01-02',2),
+('B','2021-01-04',1),
+('B','2021-01-11',1),
+('B','2021-01-16',3),
+('B','2021-02-01',3),
+('C','2021-01-01',3),
+('C','2021-01-01',3),
+('C','2021-01-07',3);
+
+
+Select *
+from [Dany's diner].dbo.Sales
+
+---Inserting into the Menu table
+Insert into [Dany's diner].dbo.Menu Values
+(1,'Sushi',10),
+(2,'Curry', 15),
+(3, 'Ramen',12)
+
+Select *
+from [Dany's diner].dbo.Menu
+
+---Inserting into the members table
+Insert into [Dany's diner].dbo.Members Values
+('A','2021-01-07'),
+('B','2021-01-09')
+
+Select *
+from [Dany's diner].dbo.Members
+
+---Q1)What is the total amount each customer spent at the restaurant?
+Select Customer_id,Sum(Price) as totalspend
+From Sales as S
+Inner join Menu as M on S.Product_id=M.Product_id
+Group by Customer_id
+
+---Q2)How many days has each customer visited the restaurant?
+Select Customer_id, 
+Count(distinct Order_date) as days
+From Sales
+Group by Customer_id
+
+---Q3)What was the first item from the menu purchased by each customer?
+With CTE as(
+
+Select Customer_id, 
+Order_date,
+Product_name,
+RANK() Over(Partition by Customer_id Order by Order_date)as rnk, 
+Row_number() Over(Partition by Customer_id Order by Order_date)as rn
+From Sales as S
+Inner Join Menu as M on S.Product_id=M.Product_id
+)
+
+Select *
+From CTE
+
+---Q4)What is the most purchased item on the menu and how many times was it purchased by all customers?
+Select Product_name,
+Count(Order_date) as orders
+From [Dany's diner].dbo.Sales as S
+Inner Join [Dany's diner].dbo.Menu as M on S.Product_id=M.Product_id
+Group by Product_name
+Order by Count(Order_date) DESC
+
+---Q5)Which item was the most popular for each customer?
+With CTE as(
+
+Select Product_name, Customer_id, Count(Order_date) as Orders,
+Rank() Over(Partition by Customer_id Order by Count(Order_date) DESC) as rnk
+From Sales as S
+Inner Join Menu as M on S.Product_id=M.Product_id
+Group by Product_name, Customer_id
+)
+Select *
+From CTE
+Where rnk=1
+
+---Q6)Which item was purchased first by the customer after they became a member?
+With CTE as(
+
+Select S.Customer_id,Join_date,Order_date,Product_name,
+Rank()Over (Partition by S.Customer_id Order by Order_date) as Rnk
+From Sales as S
+Inner join Members as Mem on S.Customer_id=Mem.Customer_id
+Inner Join Menu as M on S.Product_id=M.Product_id
+Where Order_date>=Join_date
+)
+Select Customer_id,Product_name
+From CTE 
+Where Rnk=1
+
+---Q7)Which item was purchased just before the customer became a member?
+Select S.Customer_id,Join_date,Order_date,Product_name,
+Rank()Over (Partition by S.Customer_id Order by Order_date) as Rnk
+From Sales as S
+Inner join Members as Mem on S.Customer_id=Mem.Customer_id
+Inner Join Menu as M on S.Product_id=M.Product_id
+Where Order_date<Join_date
+---Q8)What is the total items and amount spent for each member before they became a member?
+Select S.Customer_id,
+Count(Product_name) as Totalitems,
+sum(price) as Totalamountspent
+From Sales as S
+Inner join Members as Mem on S.Customer_id=Mem.Customer_id
+Inner Join Menu as M on S.Product_id=M.Product_id
+Where Order_date<Join_date
+Group by S.Customer_id
+---Q9)If each $1 spent equates to 10 points and sushi has a 2x points multiplier - how many points would each customer have?
+Select Customer_id, 
+ Sum(Case
+    When Product_name='Sushi' then Price * 10 *2
+	Else Price*10
+	End as Points)
+From Menu as M
+Inner Join Sales as S on S.Product_id=M.Product_id
+---Joining the three tables
+Select *
+From Sales as S
+Inner Join Members as Mem on S.Customer_id=Mem.Customer_id
+Inner Join Menu as M on S.Product_id=M.Product_id
